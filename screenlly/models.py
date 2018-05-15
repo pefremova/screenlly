@@ -2,7 +2,10 @@ import os
 import re
 from selenium import webdriver
 import warnings
-import urlparse
+try:
+    from urllib.parse import urlparse
+except ImportError:
+    import urlparse
 
 
 from .utils import compare_screenshots, take_screenshot

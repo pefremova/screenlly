@@ -7,4 +7,4 @@ setup(name='screenlly',
       description="Get and compare screenshots tool based on Selenium and ImageMagick",
       include_package_data=True,
       packages=find_packages(),
-      install_requires=['selenium', 'PIL'])
+      install_requires=['selenium>=3.12.0', 'Pillow>=5.1.0'])
