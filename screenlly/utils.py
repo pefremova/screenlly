@@ -31,14 +31,16 @@ def prepare_dimensions(path1, path2):
 
 def compare_screenshots(path1, path2, result):
     path1, path2 = prepare_dimensions(path1, path2)
-    command = ('convert', path1, '(', '-clone', '0', path2, '-compose', 'difference', '-composite', '-threshold', '5%',
-               '-fill', 'magenta', '-opaque', 'white', '-transparent', 'black', ')', '-compose', 'over', '-composite', result)
     p = subprocess.Popen(('compare', '-dissimilarity-threshold', '1', '-metric', 'AE', path1, path2, tempfile.mktemp()),
                          stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE)
     res, err = p.communicate()
-    subprocess.call(command)
-    return not float(res or err)
+    is_identical = not float(res or err)
+    if not is_identical:
+        command = ('convert', path1, '(', '-clone', '0', path2, '-compose', 'difference', '-composite', '-threshold', '5%',
+                   '-fill', 'magenta', '-opaque', 'white', '-transparent', 'black', ')', '-compose', 'over', '-composite', result)
+        subprocess.call(command)
+    return is_identical
 
 
 def take_screenshot(driver, file_path):
