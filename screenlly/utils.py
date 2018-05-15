@@ -6,6 +6,7 @@ import tempfile
 from time import sleep
 
 from PIL import Image
+import warnings
 
 
 def prepare_dimensions(path1, path2):
@@ -19,8 +20,8 @@ def prepare_dimensions(path1, path2):
         height = max(height1, height2)
         new_dimensions = 'x'.join([width, height])
         tmp_dir = tempfile.mkdtemp()
-        new_path1 = os.path.join(tmp_dir, path1)
-        new_path2 = os.path.join(tmp_dir, path2)
+        new_path1 = os.path.join(tmp_dir, '1' + os.path.basename(path1))
+        new_path2 = os.path.join(tmp_dir, '2' + os.path.basename(path2))
         command = ('convert', path1, '-background', 'white', '-extent', new_dimensions, new_path1)
         subprocess.call(command)
         command = ('convert', path2, '-background', 'white', '-extent', new_dimensions, new_path2)
@@ -76,3 +77,22 @@ def take_screenshot(driver, file_path):
 
     screenshot.save(file_path)
     return file_path
+
+
+def take_element_screenshot(driver, file_path, element_xpath, prepare_element=None):
+    dummy = lambda *args, **kwargs: None
+    prepare_element = prepare_element or dummy
+    elements = driver.find_elements_by_xpath(element_xpath)
+    file_name, ext = os.path.splitext(os.path.basename(file_path))
+    dirname = os.path.dirname(file_path)
+    for n, element in enumerate(elements):
+        prepare_element(element, element_xpath)
+        screen_name = os.path.join(dirname, file_name + ('_%d' % n if len(elements) > 1 else '') + ext)
+        try:
+            png = base64.b64decode(element.screenshot_as_base64)
+        except Exception as e:
+            warnings.warn('Exception on take screenshot for %s-th element %s. Screen visible part of page\n%s' %
+                          (n, element_xpath, e))
+            png = base64.b64decode(driver.get_screenshot_as_base64())
+        with open(screen_name, 'w') as screenshot:
+            screenshot.write(png)
