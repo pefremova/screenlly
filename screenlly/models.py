@@ -4,7 +4,7 @@ from selenium import webdriver
 import warnings
 from selenium.common.exceptions import StaleElementReferenceException
 try:
-    from urllib.parse import urlparse
+    from urllib import parse as urlparse
 except ImportError:
     import urlparse
 
@@ -44,7 +44,8 @@ class ScreenCompare(object):
             for element in elements:
                 try:
                     driver.execute_script("var ele=arguments[0]; ele.innerHTML = '<div style=\"text-align:center; "
-                                          "width:{width}px; height:{height}px; background-color:yellow; color:black\"></div>';".format(**element.size),
+                                          "width:{width}px; height:{height}px; background-color:yellow; color:black\"></div>';".format(
+                                              **element.size),
                                           element)
                 except StaleElementReferenceException:
                     pass
@@ -59,6 +60,9 @@ class ScreenCompare(object):
         pass
 
     def update_report(self, file_paths, browser_name, url):
+        pass
+
+    def update_report_compare(self, filename, result_screen):
         pass
 
     def compare(self, expected, tested, result):
@@ -88,7 +92,7 @@ class ScreenCompare(object):
                 command_executor=self.grid_url,
                 desired_capabilities=browser['desired_capabilities'])
             try:
-                if browser.has_key('window_size'):
+                if 'window_size' in browser:
                     driver.set_window_size(*browser['window_size'])
                 else:
                     driver.maximize_window()
