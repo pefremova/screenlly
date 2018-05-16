@@ -85,6 +85,7 @@ def take_element_screenshot(driver, file_path, element_xpath, prepare_element=No
     elements = driver.find_elements_by_xpath(element_xpath)
     file_name, ext = os.path.splitext(os.path.basename(file_path))
     dirname = os.path.dirname(file_path)
+    file_paths = []
     for n, element in enumerate(elements):
         prepare_element(element, element_xpath)
         screen_name = os.path.join(dirname, file_name + ('_%d' % n if len(elements) > 1 else '') + ext)
@@ -96,3 +97,5 @@ def take_element_screenshot(driver, file_path, element_xpath, prepare_element=No
             png = base64.b64decode(driver.get_screenshot_as_base64())
         with open(screen_name, 'w') as screenshot:
             screenshot.write(png)
+            file_paths.append(screen_name)
+    return file_paths

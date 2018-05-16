@@ -44,6 +44,9 @@ class ScreenCompare(object):
     def prepare_element(self, element, xpath):
         pass
 
+    def update_report(self, file_paths, browser_name, url):
+        pass
+
     def compare(self, expected, tested, result):
         not_identical = []
         for el in os.walk(tested):
@@ -84,7 +87,8 @@ class ScreenCompare(object):
                         if not os.path.exists(os.path.dirname(screen_path)):
                             os.makedirs(os.path.dirname(screen_path))
                         self.prepare_page(driver)
-                        self.take_page_screenshot(driver, screen_path, elements_xpath)
+                        file_paths = self.take_page_screenshot(driver, screen_path, elements_xpath)
+                        self.update_report(file_paths, browser_name, url)
                     except Exception as e:
                         warnings.warn('Exception on page %s\n%s' % (full_url, e))
             except Exception as e:
@@ -94,6 +98,7 @@ class ScreenCompare(object):
 
     def take_page_screenshot(self, driver, file_path='', elements_xpath=None):
         if elements_xpath:
+            file_paths = []
             for n, el_xpath in enumerate(elements_xpath):
                 filename = os.path.basename(file_path)
                 dirname = os.path.dirname(file_path)
@@ -101,6 +106,8 @@ class ScreenCompare(object):
                     file_path = os.path.join(dirname, str(n), filename)
                 if not os.path.exists(os.path.dirname(file_path)):
                     os.makedirs(os.path.dirname(file_path))
-                take_element_screenshot(driver, file_path, el_xpath, prepare_element=self.prepare_element)
+                file_paths.extend(take_element_screenshot(driver, file_path, el_xpath,
+                                                          prepare_element=self.prepare_element))
+            return file_paths
         else:
-            take_screenshot(driver, file_path)
+            return [take_screenshot(driver, file_path)]
