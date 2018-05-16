@@ -2,6 +2,7 @@ import os
 import re
 from selenium import webdriver
 import warnings
+from selenium.common.exceptions import StaleElementReferenceException
 try:
     from urllib.parse import urlparse
 except ImportError:
@@ -18,13 +19,15 @@ class ScreenCompare(object):
                  grid_url='',
                  urls=None,
                  browsers=None,
-                 elements_xpath=None):
+                 elements_xpath=None,
+                 hide_elements_xpath=None):
         self.host = host
         self.screenshots_path = screenshots_path
         self.grid_url = grid_url or 'http://127.0.0.1:4444/wd/hub'
         self.urls = urls or []
         self.browsers = browsers or {}
         self.elements_xpath = elements_xpath or []
+        self.hide_elements_xpath = hide_elements_xpath or []
 
     def name_from_url(self, url):
         name = re.sub('[/:]+', '_', re.sub('https?://', '', url))
@@ -35,10 +38,21 @@ class ScreenCompare(object):
     def get_screenshot_path(self, url, browser):
         return os.path.join(self.screenshots_path, self.name_from_url(url), browser) + '.png'
 
+    def hide_elements(self, driver):
+        for element_xpath in self.hide_elements_xpath:
+            elements = driver.find_elements_by_xpath(element_xpath)
+            for element in elements:
+                try:
+                    driver.execute_script("var ele=arguments[0]; ele.innerHTML = '<div style=\"text-align:center; "
+                                          "width:{width}px; height:{height}px; background-color:yellow; color:black\"></div>';".format(**element.size),
+                                          element)
+                except StaleElementReferenceException:
+                    pass
+
     def prepare_global(self, driver):
         pass
 
-    def prepare_page(self, driver):
+    def prepare_page(self, driver, url):
         pass
 
     def prepare_element(self, element, xpath):
@@ -86,7 +100,8 @@ class ScreenCompare(object):
                         screen_path = self.get_screenshot_path(url, browser_name)
                         if not os.path.exists(os.path.dirname(screen_path)):
                             os.makedirs(os.path.dirname(screen_path))
-                        self.prepare_page(driver)
+                        self.hide_elements(driver)
+                        self.prepare_page(driver, url)
                         file_paths = self.take_page_screenshot(driver, screen_path, elements_xpath)
                         self.update_report(file_paths, browser_name, url)
                     except Exception as e:
