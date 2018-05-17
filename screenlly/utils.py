@@ -11,8 +11,8 @@ import warnings
 
 def prepare_dimensions(path1, path2):
     """If image widths or heights differ make new tmp images with white background and same dimensions"""
-    dimensions1 = subprocess.check_output(('identify', '-format', '%w,%h', path1))
-    dimensions2 = subprocess.check_output(('identify', '-format', '%w,%h', path2))
+    dimensions1 = subprocess.check_output(('identify', '-format', '%w,%h', path1)).decode('utf-8')
+    dimensions2 = subprocess.check_output(('identify', '-format', '%w,%h', path2)).decode('utf-8')
     if dimensions1 != dimensions2:
         width1, height1 = dimensions1.split(',')
         width2, height2 = dimensions2.split(',')
@@ -58,10 +58,14 @@ def take_screenshot(driver, file_path):
             sleep(0.5)
 
     wait_position(0)
-    size = driver.find_element_by_xpath('//body').size
-    height = rest_height = size['height']
+    height = rest_height = driver.execute_script('return Math.max(document.body.scrollHeight, document.body.offsetHeight, '
+                                                 'document.documentElement.clientHeight, document.documentElement.scrollHeight, '
+                                                 'document.documentElement.offsetHeight );')
+    width = driver.execute_script('return Math.max(document.body.scrollWidth, document.body.offsetWidth, '
+                                  'document.documentElement.clientWidth, document.documentElement.scrollWidth, '
+                                  'document.documentElement.offsetWidth );')
     window_height = driver.execute_script('return window.innerHeight;') - 5
-    screenshot = Image.new('RGB', (int(size['width']), int(size['height'])))
+    screenshot = Image.new('RGB', (int(width), int(height)))
 
     while rest_height > window_height:
         png = base64.b64decode(driver.get_screenshot_as_base64())
