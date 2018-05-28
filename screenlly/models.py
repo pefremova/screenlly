@@ -67,6 +67,7 @@ class ScreenCompare(object):
 
     def compare(self, expected, tested, result):
         not_identical = []
+
         for el in os.walk(tested):
             for filename in el[-1]:
                 new_screen = os.path.join(el[0], filename)
@@ -76,9 +77,11 @@ class ScreenCompare(object):
                     result_screen = os.path.join(result, relpath)
                     if not os.path.exists(os.path.dirname(result_screen)):
                         os.makedirs(os.path.dirname(result_screen))
-                    is_identical = compare_screenshots(old_screen, new_screen, result_screen)
-                    if not is_identical:
+                    difference = compare_screenshots(old_screen, new_screen, result_screen)
+                    if difference:
                         not_identical.append(result_screen)
+                    self.update_report_compare(is_identical, old_screen, new_screen, result_screen,
+                                               expected, tested, result)
                 else:
                     warnings.warn('No expected image for "%s" at path %s' % (filename, old_screen))
         return not_identical
