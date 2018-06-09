@@ -71,13 +71,14 @@ def take_screenshot(driver, file_path):
         png = base64.b64decode(driver.get_screenshot_as_base64())
         im = Image.open(BytesIO(png))
         screenshot.paste(im, (0, int(driver.execute_script("return window.pageYOffset;"))))
-        rest_height = rest_height - window_height
+        rest_height = rest_height - im.height
         driver.execute_script("window.scrollTo(0, %s);" % (height - rest_height))
         wait_position(height - rest_height)
 
-    png = base64.b64decode(driver.get_screenshot_as_base64())
-    im = Image.open(BytesIO(png))
-    screenshot.paste(im, (0, int(driver.execute_script("return window.pageYOffset;"))))
+    if rest_height != 0:
+        png = base64.b64decode(driver.get_screenshot_as_base64())
+        im = Image.open(BytesIO(png))
+        screenshot.paste(im, (0, int(driver.execute_script("return window.pageYOffset;"))))
 
     screenshot.save(file_path)
     return file_path

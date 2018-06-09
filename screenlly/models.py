@@ -62,7 +62,8 @@ class ScreenCompare(object):
     def update_report(self, file_paths, browser_name, url):
         pass
 
-    def update_report_compare(self, filename, result_screen):
+    def update_report_compare(self, difference, old_screen, new_screen, result_screen,
+                              expected, tested, result):
         pass
 
     def compare(self, expected, tested, result):
@@ -80,7 +81,7 @@ class ScreenCompare(object):
                     difference = compare_screenshots(old_screen, new_screen, result_screen)
                     if difference:
                         not_identical.append(result_screen)
-                    self.update_report_compare(is_identical, old_screen, new_screen, result_screen,
+                    self.update_report_compare(difference, old_screen, new_screen, result_screen,
                                                expected, tested, result)
                 else:
                     warnings.warn('No expected image for "%s" at path %s' % (filename, old_screen))
@@ -90,6 +91,7 @@ class ScreenCompare(object):
         urls = urls or self.urls
         browsers = browsers or self.browsers
         elements_xpath = elements_xpath or self.elements_xpath
+
         for browser_name, browser in browsers.items():
             driver = webdriver.Remote(
                 command_executor=self.grid_url,
