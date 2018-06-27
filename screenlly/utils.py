@@ -44,42 +44,68 @@ def compare_screenshots(path1, path2, result, diff_color='magenta'):
     return difference
 
 
-def take_screenshot(driver, file_path):
-    driver.execute_script("window.scrollTo(0, 0);")
+def take_screenshot(driver, file_path, top_left=(0, 0), bottom_right=None, return_img=False):
+
+    def scroll_to(x, y):
+        driver.execute_script("window.scrollTo(arguments[0], arguments[1]);", x, y)
+
+    def get_current_y():
+        return int(driver.execute_script("return window.pageYOffset;"))
 
     def wait_position(position):
         i = 0
         current = -1
         while (current != position and
-               driver.execute_script("return window.pageYOffset;") <
+               get_current_y() <
                driver.find_element_by_xpath('//body').size['height'] - driver.get_window_size()['height']) and i < 3:
-            current = driver.execute_script("return window.pageYOffset;")
+            current = get_current_y()
             i += 1
             sleep(0.5)
 
-    wait_position(0)
-    height = rest_height = driver.execute_script('return Math.max(document.body.scrollHeight, document.body.offsetHeight, '
-                                                 'document.documentElement.clientHeight, document.documentElement.scrollHeight, '
-                                                 'document.documentElement.offsetHeight );')
-    width = driver.execute_script('return Math.max(document.body.scrollWidth, document.body.offsetWidth, '
-                                  'document.documentElement.clientWidth, document.documentElement.scrollWidth, '
-                                  'document.documentElement.offsetWidth );')
+    def get_screen_piece():
+        png = base64.b64decode(driver.get_screenshot_as_base64())
+        im = Image.open(BytesIO(png))
+        x1 = top_left[0]
+        x2 = bottom_right[0]
+        y1 = 0
+        if get_current_y() < top_left[1] or im.height == body_height:
+            y1 = top_left[1]
+        y2 = min(bottom_right[1], im.height)
+        im = im.crop((x1, y1, x2, y2))
+        return im
+
+    scroll_to(*top_left)
+
+    body_height = driver.execute_script('return Math.max(document.body.scrollHeight, document.body.offsetHeight, '
+                                        'document.documentElement.clientHeight, document.documentElement.scrollHeight, '
+                                        'document.documentElement.offsetHeight );')
+    body_width = driver.execute_script('return Math.max(document.body.scrollWidth, document.body.offsetWidth, '
+                                       'document.documentElement.clientWidth, document.documentElement.scrollWidth, '
+                                       'document.documentElement.offsetWidth );')
+    if not bottom_right:
+        bottom_right = (body_width, body_height)
+
     window_height = driver.execute_script('return window.innerHeight;') - 5
-    screenshot = Image.new('RGB', (int(width), int(height)))
+    wait_position(min(top_left[1], body_height - window_height))
+
+    img_height = rest_height = bottom_right[1] - top_left[1]
+    img_width = bottom_right[0] - top_left[0]
+    screenshot = Image.new('RGB', (int(img_width), int(img_height)))
 
     while rest_height > window_height:
-        png = base64.b64decode(driver.get_screenshot_as_base64())
-        im = Image.open(BytesIO(png))
-        screenshot.paste(im, (0, int(driver.execute_script("return window.pageYOffset;"))))
+        im = get_screen_piece()
+        screenshot.paste(im, (0, max(0, get_current_y() - top_left[1])))
         rest_height = rest_height - im.height
-        driver.execute_script("window.scrollTo(0, %s);" % (height - rest_height))
-        wait_position(height - rest_height)
+        next_y = top_left[1] + img_height - rest_height
+        scroll_to(0, next_y)
+        wait_position(min(next_y, body_height - window_height))
 
     if rest_height != 0:
-        png = base64.b64decode(driver.get_screenshot_as_base64())
-        im = Image.open(BytesIO(png))
-        screenshot.paste(im, (0, int(driver.execute_script("return window.pageYOffset;"))))
+        im = get_screen_piece()
+        screenshot.paste(im, (0, max(0, get_current_y() - top_left[1])))
 
+    if return_img:
+        return screenshot
     screenshot.save(file_path)
     return file_path
 
@@ -96,11 +122,19 @@ def take_element_screenshot(driver, file_path, element_xpath, prepare_element=No
         screen_name = os.path.join(dirname, file_name + ('_%d' % n if len(elements) > 1 else '') + ext)
         try:
             png = base64.b64decode(element.screenshot_as_base64)
+            with open(screen_name, 'w') as screenshot:
+                screenshot.write(png)
         except Exception as e:
-            warnings.warn('Exception on take screenshot for %s-th element %s. Screen visible part of page\n%s' %
+            warnings.warn('Exception on take screenshot for %s-th element %s. Screen element from full page screenshot\n%s' %
                           (n, element_xpath, e))
-            png = base64.b64decode(driver.get_screenshot_as_base64())
-        with open(screen_name, 'w') as screenshot:
-            screenshot.write(png)
+            location = element.location
+            size = element.size
+            x1 = int(location['x'])
+            y1 = int(location['y'])
+            x2 = location['x'] + int(size['width'])
+            y2 = location['y'] + int(size['height'])
+
+            take_screenshot(driver, screen_name, top_left=(x1, y1), bottom_right=(x2, y2))
+        finally:
             file_paths.append(screen_name)
     return file_paths
