@@ -138,3 +138,13 @@ def take_element_screenshot(driver, file_path, element_xpath, prepare_element=No
         finally:
             file_paths.append(screen_name)
     return file_paths
+
+
+def get_element_part_screenshot(element, img_content):
+    im = Image.open(BytesIO(img_content))
+    location = element.location
+    size = element.size
+    im = im.crop((location['x'], location['y'], location['x'] + size['width'], location['y'] + size['height']))
+    output = BytesIO()
+    im.save(output, format='PNG')
+    return output.getvalue()
