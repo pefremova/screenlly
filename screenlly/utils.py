@@ -44,7 +44,7 @@ def compare_screenshots(path1, path2, result, diff_color='magenta'):
     return difference
 
 
-def take_screenshot(driver, file_path, top_left=(0, 0), bottom_right=None, return_img=False):
+def take_screenshot(driver, file_path, top_left=(0, 0), bottom_right=None, return_img=False, return_content=False):
 
     def scroll_to(x, y):
         driver.execute_script("window.scrollTo(arguments[0], arguments[1]);", x, y)
@@ -103,7 +103,10 @@ def take_screenshot(driver, file_path, top_left=(0, 0), bottom_right=None, retur
     if rest_height != 0:
         im = get_screen_piece()
         screenshot.paste(im, (0, max(0, get_current_y() - top_left[1])))
-
+    if return_content:
+        output = BytesIO()
+        screenshot.save(output, format='PNG')
+        return output.getvalue()
     if return_img:
         return screenshot
     screenshot.save(file_path)
