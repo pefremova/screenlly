@@ -3,7 +3,7 @@ from distutils.core import setup
 from setuptools import find_packages
 
 setup(name='screenlly',
-      version='0.0.6',
+      version='0.0.7',
       description="Get and compare screenshots tool based on Selenium and ImageMagick",
       author="Polina Efremova",
       author_email="pefremova@gmail.com",
