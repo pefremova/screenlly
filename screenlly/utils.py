@@ -49,10 +49,9 @@ def take_screenshot(driver, file_path, top_left=(0, 0), bottom_right=None,
 
     fixed_header_height = 0
     if fixed_header_xpath:
-        header = driver.find_elements_by_xpath(fixed_header_xpath)
-        if header:
-            header = header[0]
-            fixed_header_height = int(header.size['height'])
+        elements = driver.find_elements_by_xpath(fixed_header_xpath)
+        if elements:
+            fixed_header_height = max([el.location['y'] + int(el.size['height']) for el in elements])
 
     def scroll_to(x, y):
         driver.execute_script("window.scrollTo(arguments[0], arguments[1]);", x, y)
@@ -106,14 +105,16 @@ def take_screenshot(driver, file_path, top_left=(0, 0), bottom_right=None,
         im = get_screen_piece()
         screenshot.paste(im, (0, max(0, get_current_y() +
                                      (fixed_header_height if get_current_y() > 0 else 0) - top_left[1])))
-        rest_height = rest_height - im.height + fixed_header_height
+        rest_height = rest_height - im.height
+        if rest_height > 0:
+            rest_height += fixed_header_height
         next_y = top_left[1] + img_height - rest_height
         scroll_to(0, next_y)
         wait_position(min(next_y, body_height - window_height))
 
     if rest_height != 0:
         im = get_screen_piece()
-        screenshot.paste(im, (0, max(0, get_current_y() + fixed_header_height - top_left[1])))
+        screenshot.paste(im, (0, max(0, get_current_y() + (fixed_header_height if get_current_y() > 0 else 0) - top_left[1])))
     if return_content:
         output = BytesIO()
         screenshot.save(output, format='PNG')
