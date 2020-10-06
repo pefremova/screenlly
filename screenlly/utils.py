@@ -47,12 +47,6 @@ def compare_screenshots(path1, path2, result, diff_color='magenta'):
 def take_screenshot(driver, file_path, top_left=(0, 0), bottom_right=None,
                     return_img=False, return_content=False, fixed_header_xpath=None):
 
-    fixed_header_height = 0
-    if fixed_header_xpath:
-        elements = driver.find_elements_by_xpath(fixed_header_xpath)
-        if elements:
-            fixed_header_height = max([el.location['y'] + int(el.size['height']) for el in elements])
-
     def scroll_to(x, y):
         driver.execute_script("window.scrollTo(arguments[0], arguments[1]);", x, y)
 
@@ -85,6 +79,12 @@ def take_screenshot(driver, file_path, top_left=(0, 0), bottom_right=None,
 
     scroll_to(*top_left)
 
+    fixed_header_height = 0
+    if fixed_header_xpath:
+        elements = driver.find_elements_by_xpath(fixed_header_xpath)
+        if elements:
+            fixed_header_height = max([el.location['y'] + int(el.size['height']) for el in elements])
+
     body_height = driver.execute_script('return Math.max(document.body.scrollHeight, document.body.offsetHeight, '
                                         'document.documentElement.clientHeight, document.documentElement.scrollHeight, '
                                         'document.documentElement.offsetHeight );')
@@ -101,20 +101,18 @@ def take_screenshot(driver, file_path, top_left=(0, 0), bottom_right=None,
     img_width = bottom_right[0] - top_left[0]
     screenshot = Image.new('RGB', (int(img_width), int(img_height)))
 
-    while rest_height > window_height:
-        im = get_screen_piece()
-        screenshot.paste(im, (0, max(0, get_current_y() +
-                                     (fixed_header_height if get_current_y() > 0 else 0) - top_left[1])))
-        rest_height = rest_height - im.height
-        if rest_height > 0:
-            rest_height += fixed_header_height
-        next_y = top_left[1] + img_height - rest_height
-        scroll_to(0, next_y)
-        wait_position(min(next_y, body_height - window_height))
+    y_positions = [top_left[1], ]
+    for n in range(1, int(bottom_right[1] / (window_height - fixed_header_height)) + 1):
+        y_positions.append(min((window_height - fixed_header_height) * n,
+                               bottom_right[1]))
+    y_positions.append(min(body_height, bottom_right[1]) - fixed_header_height)
 
-    if rest_height != 0:
+    for y_position in y_positions:
+        scroll_to(0, y_position)
+        wait_position(y_position)
         im = get_screen_piece()
-        screenshot.paste(im, (0, max(0, get_current_y() + (fixed_header_height if get_current_y() > 0 else 0) - top_left[1])))
+        screenshot.paste(im, (0, get_current_y() + fixed_header_height if y_position > 0 else 0))
+
     if return_content:
         output = BytesIO()
         screenshot.save(output, format='PNG')
