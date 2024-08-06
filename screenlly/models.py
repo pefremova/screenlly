@@ -3,24 +3,32 @@ import re
 from selenium import webdriver
 import warnings
 from selenium.common.exceptions import StaleElementReferenceException
+
 try:
     from urllib import parse as urlparse
 except ImportError:
     import urlparse
 
 
-from .utils import compare_screenshots, take_screenshot, take_element_screenshot
+from .utils import (
+    compare_screenshots,
+    take_screenshot,
+    take_element_screenshot,
+    find_element_by_xpath,
+)
 
 
 class ScreenCompare(object):
-
-    def __init__(self, screenshots_path='',
-                 host='',
-                 grid_url='',
-                 urls=None,
-                 browsers=None,
-                 elements_xpath=None,
-                 hide_elements_xpath=None):
+    def __init__(
+        self,
+        screenshots_path='',
+        host='',
+        grid_url='',
+        urls=None,
+        browsers=None,
+        elements_xpath=None,
+        hide_elements_xpath=None,
+    ):
         self.host = host
         self.screenshots_path = screenshots_path
         self.grid_url = grid_url or 'http://127.0.0.1:4444/wd/hub'
@@ -36,17 +44,23 @@ class ScreenCompare(object):
         return name
 
     def get_screenshot_path(self, url, browser):
-        return os.path.join(self.screenshots_path, self.name_from_url(url), browser) + '.png'
+        return (
+            os.path.join(self.screenshots_path, self.name_from_url(url), browser)
+            + '.png'
+        )
 
     def hide_elements(self, driver):
         for element_xpath in self.hide_elements_xpath:
-            elements = driver.find_elements_by_xpath(element_xpath)
+            elements = find_element_by_xpath(driver, element_xpath)
             for element in elements:
                 try:
-                    driver.execute_script("var ele=arguments[0]; ele.innerHTML = '<div style=\"text-align:center; "
-                                          "width:{width}px; height:{height}px; background-color:yellow; color:black\"></div>';".format(
-                                              **element.size),
-                                          element)
+                    driver.execute_script(
+                        "var ele=arguments[0]; ele.innerHTML = '<div style=\"text-align:center; "
+                        "width:{width}px; height:{height}px; background-color:yellow; color:black\"></div>';".format(
+                            **element.size
+                        ),
+                        element,
+                    )
                 except StaleElementReferenceException:
                     pass
 
@@ -62,8 +76,16 @@ class ScreenCompare(object):
     def update_report(self, file_paths, browser_name, url):
         pass
 
-    def update_report_compare(self, difference, old_screen, new_screen, result_screen,
-                              expected, tested, result):
+    def update_report_compare(
+        self,
+        difference,
+        old_screen,
+        new_screen,
+        result_screen,
+        expected,
+        tested,
+        result,
+    ):
         pass
 
     def compare(self, expected, tested, result):
@@ -78,13 +100,24 @@ class ScreenCompare(object):
                     result_screen = os.path.join(result, relpath)
                     if not os.path.exists(os.path.dirname(result_screen)):
                         os.makedirs(os.path.dirname(result_screen))
-                    difference = compare_screenshots(old_screen, new_screen, result_screen)
+                    difference = compare_screenshots(
+                        old_screen, new_screen, result_screen
+                    )
                     if difference:
                         not_identical.append(result_screen)
-                    self.update_report_compare(difference, old_screen, new_screen, result_screen,
-                                               expected, tested, result)
+                    self.update_report_compare(
+                        difference,
+                        old_screen,
+                        new_screen,
+                        result_screen,
+                        expected,
+                        tested,
+                        result,
+                    )
                 else:
-                    warnings.warn('No expected image for "%s" at path %s' % (filename, old_screen))
+                    warnings.warn(
+                        'No expected image for "%s" at path %s' % (filename, old_screen)
+                    )
         return not_identical
 
     def take_screenshots(self, urls=None, browsers=None, elements_xpath=None):
@@ -95,7 +128,8 @@ class ScreenCompare(object):
         for browser_name, browser in browsers.items():
             driver = webdriver.Remote(
                 command_executor=self.grid_url,
-                desired_capabilities=browser['desired_capabilities'])
+                desired_capabilities=browser['desired_capabilities'],
+            )
             try:
                 if 'window_size' in browser:
                     driver.set_window_size(*browser['window_size'])
@@ -111,7 +145,9 @@ class ScreenCompare(object):
                             os.makedirs(os.path.dirname(screen_path))
                         self.hide_elements(driver)
                         self.prepare_page(driver, url)
-                        file_paths = self.take_page_screenshot(driver, screen_path, elements_xpath)
+                        file_paths = self.take_page_screenshot(
+                            driver, screen_path, elements_xpath
+                        )
                         self.update_report(file_paths, browser_name, url)
                     except Exception as e:
                         warnings.warn('Exception on page %s\n%s' % (full_url, e))
@@ -130,8 +166,14 @@ class ScreenCompare(object):
                     file_path = os.path.join(dirname, str(n), filename)
                 if not os.path.exists(os.path.dirname(file_path)):
                     os.makedirs(os.path.dirname(file_path))
-                file_paths.extend(take_element_screenshot(driver, file_path, el_xpath,
-                                                          prepare_element=self.prepare_element))
+                file_paths.extend(
+                    take_element_screenshot(
+                        driver,
+                        file_path,
+                        el_xpath,
+                        prepare_element=self.prepare_element,
+                    )
+                )
             return file_paths
         else:
             return [take_screenshot(driver, file_path)]
