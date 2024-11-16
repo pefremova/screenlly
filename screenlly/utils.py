@@ -111,6 +111,12 @@ def compare_screenshots(path1, path2, result, diff_color='magenta'):
     return difference
 
 
+def get_inner_window_size(driver):
+    return driver.execute_script(
+        'return {"width": window.innerWidth, "height": window.innerHeight};'
+    )
+
+
 def take_screenshot(
     driver,
     file_path,
@@ -129,44 +135,71 @@ def take_screenshot(
             "arguments[0].scrollTo(arguments[1], arguments[2]);", el, x, y
         )
 
+    def get_current_x():
+        return int(driver.execute_script("return window.pageXOffset;"))
+
     def get_current_y():
         return int(driver.execute_script("return window.pageYOffset;"))
+
+    def element_get_current_x(el):
+        return int(driver.execute_script("return arguments[0].scrollLeft;", el))
 
     def element_get_current_y(el):
         return int(driver.execute_script("return arguments[0].scrollTop;", el))
 
-    def wait_position(position):
+    def wait_position(x, y):
         i = 0
-        current = -1
+        current_x = current_y = -1
         while (
-            current != position
+            current_x != x
+            and current_y != y
+            and get_current_x()
+            < find_element_by_xpath(driver, '//body').size['width']
+            - driver.get_window_size()['width']
             and get_current_y()
             < find_element_by_xpath(driver, '//body').size['height']
             - driver.get_window_size()['height']
         ) and i < 3:
-            current = get_current_y()
+            current_x = get_current_x()
+            current_y = get_current_y()
             i += 1
             sleep(0.5)
 
-    def element_wait_position(el, position):
+    def element_wait_position(el, x, y):
         i = 0
-        current = -1
+        current_x = current_y = -1
         while (
-            current != position
+            current_x != x
+            and current_y != y
+            and element_get_current_x(el)
+            < (
+                find_element_by_xpath(driver, '//body').size['width']
+                - driver.get_window_size()['width']
+            )
             and element_get_current_y(el)
-            < find_element_by_xpath(driver, '//body').size['height']
-            - driver.get_window_size()['height']
+            < (
+                find_element_by_xpath(driver, '//body').size['height']
+                - driver.get_window_size()['height']
+            )
         ) and i < 3:
-            current = element_get_current_y(el)
+            current_x = element_get_current_x(el)
+            current_y = element_get_current_y(el)
             i += 1
             sleep(0.5)
 
     def get_screen_piece():
         png = base64.b64decode(driver.get_screenshot_as_base64())
         im = Image.open(BytesIO(png))
-        x1 = top_left[0]
-        x2 = bottom_right[0]
+        inner_window_size = get_inner_window_size(driver)
+        im = im.resize((inner_window_size['width'], inner_window_size['height']))
+        x1 = 0
         y1 = 0
+        current_x = get_current_x()
+        if current_x < top_left[0] or im.width == body_width:
+            x1 = top_left[0]
+        if current_x > 0:
+            x1 = 0
+        x2 = min(bottom_right[0], im.width)
         current_y = (
             element_get_current_y(scrollable_element)
             if scrollable_element
@@ -220,43 +253,66 @@ def take_screenshot(
     if not bottom_right:
         bottom_right = (body_width, body_height)
 
-    window_height = driver.execute_script('return window.innerHeight;') - 5
+    inner_window_size = get_inner_window_size(driver)
     if scrollable_element:
         element_wait_position(
-            scrollable_element, min(top_left[1], body_height - window_height)
+            scrollable_element,
+            0,
+            min(top_left[1], body_height - inner_window_size['height']),
         )
     else:
-        wait_position(min(top_left[1], body_height - window_height))
+        wait_position(0, min(top_left[1], body_height - inner_window_size['height']))
 
     img_height = rest_height = bottom_right[1] - top_left[1]
     img_width = bottom_right[0] - top_left[0]
     screenshot = Image.new('RGB', (int(img_width), int(img_height)))
+    x_positions = [
+        top_left[0],
+    ]
+    for n in range(1, int(bottom_right[0] / inner_window_size['width']) + 1):
+        x_positions.append(min(inner_window_size['width'] * n, bottom_right[0]))
+    x_positions.append(min(body_width, bottom_right[0]))
 
     y_positions = [
         top_left[1],
     ]
-    for n in range(1, int(bottom_right[1] / (window_height - fixed_header_height)) + 1):
+    for n in range(
+        1,
+        int(bottom_right[1] / (inner_window_size['height'] - fixed_header_height)) + 1,
+    ):
         y_positions.append(
-            min((window_height - fixed_header_height) * n, bottom_right[1])
+            min(
+                (inner_window_size['height'] - fixed_header_height) * n, bottom_right[1]
+            )
         )
     y_positions.append(min(body_height, bottom_right[1]) - fixed_header_height)
 
-    for y_position in y_positions:
-        if scrollable_element:
-            element_scroll_to(scrollable_element, 0, y_position)
-            element_wait_position(scrollable_element, y_position)
-        else:
-            scroll_to(0, y_position)
-            wait_position(y_position)
-        im = get_screen_piece()
-        current_y = (
-            element_get_current_y(scrollable_element)
-            if scrollable_element
-            else get_current_y()
-        )
-        screenshot.paste(
-            im, (0, current_y + fixed_header_height if y_position > 0 else 0)
-        )
+    for x_position in x_positions:
+        for y_position in y_positions:
+            if scrollable_element:
+                element_scroll_to(scrollable_element, x_position, y_position)
+                element_wait_position(scrollable_element, x_position, y_position)
+            else:
+                scroll_to(x_position, y_position)
+                wait_position(x_position, y_position)
+            im = get_screen_piece()
+            current_x = (
+                element_get_current_x(scrollable_element)
+                if scrollable_element
+                else get_current_x()
+            )
+            current_y = (
+                element_get_current_y(scrollable_element)
+                if scrollable_element
+                else get_current_y()
+            )
+            screenshot.paste(
+                im,
+                (
+                    current_x,
+                    current_y + fixed_header_height if y_position > 0 else 0,
+                ),
+            )
 
     if return_content:
         output = BytesIO()
